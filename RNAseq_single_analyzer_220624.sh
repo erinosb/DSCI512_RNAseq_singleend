@@ -16,6 +16,7 @@
 #
 # START DATE:
 # June 24, 2022
+# Updated Dec 9, 2022
 #
 # DEPENDENCIES:
 # 	Requires the installation of the follwing software: 
@@ -112,9 +113,6 @@ mkdir -p $outputdir
 #These are the sample names, R1:
 samples1=( $(cut -f 1 --output-delimiter=' ' $metadata) )
 
-#These are the sample names, R2:
-#samples2=( $(cut -f 2 --output-delimiter=' ' $metadata) )
-
 #These are the nicknames I want to give the files:
 names=( $(cut -f 3 --output-delimiter=' ' $metadata) )
 
@@ -133,9 +131,12 @@ do
 done
 
 
-# skewer: we will use skewer to remove the ribo-seq-specific adapter sequences
-echo -e "\n>>> skewer: Trimming adapter-specific sequences from .fastq file"
-mkdir -p $outputdir"01_skewer"
+
+
+# FASTP to remove unwanted sequences
+# FASTP to determine quality
+echo -e "\n>>> FASTP: Trimming excess and low-quality sequences from .fastq file; generating quality report"
+mkdir -p $outputdir"01_fastp"
 
 for (( counter=0; counter < ${#samples1[@]}; counter++ ))
 do
@@ -147,42 +148,18 @@ do
             ##### ENTER ECHO STATEMENTS HERE #####
     
     ## Make output directories
-    mkdir -p $outputdir"01_skewer/"
-    
-    ## execute skewer
-    cmd1="skewer -t $pthread -x NNNNNNCACTCGGGCACCAAGGA -l 15 --quiet $inputdir/$sample1 \
--o ${outputdir}01_skewer/${samplename}"
-    
-    #echo -e "\t$ ${cmd1}"
-    #time eval $cmd1
-
-done
-
-
-# FASTP, we will use FASTP remove low quality reads and create a quality report
-echo -e "\n>>> FASTP: Trimming adapter-specific sequences from .fastq file"
-
-for (( counter=0; counter < ${#samples1[@]}; counter++ ))
-do
-    samplename=${names[$counter]}
-    
-    echo -e "in the loop"
-    ## Echo statements
-    
-            ##### ENTER ECHO STATEMENTS HERE #####
-    
+    mkdir -p $outputdir"01_fastp/"$samplename
     
     ## execute fastp
-    cmd2="fastp -i ${outputdir}01_skewer/${samplename}-trimmed.fastq \
--o ${outputdir}01_skewer/${samplename}_trim_1.fastq \
--h ${outputdir}01_skewer/${samplename}_report.html \
--j ${outputdir}01_skewer/${samplename}_report.json \
---detect_adapter_for_pe \
+    cmd1="fastp -i $inputdir/$sample1 \
+-o ${outputdir}01_fastp/${samplename}/${samplename}_trim_1.fastq \
+-h ${outputdir}01_fastp/${samplename}/${samplename}_report.html \
+-j ${outputdir}01_fastp/${samplename}/${samplename}_report.json \
 --thread $pthread \
 -x -g "
     
-    #echo -e "\t$ ${cmd2}"
-    #time eval $cmd2
+    echo -e "\t$ ${cmd1}"
+    time eval $cmd1
 
 done
 
@@ -196,12 +173,13 @@ for (( counter=0; counter < ${#samples1[@]}; counter++ ))
 do
     samplename=${names[$counter]}
     sample1=${samples1[$counter]}
+    sample2=${samples2[$counter]}
 
 
     ## execute hisat2
-    #cmd3="hisat2 -x $hisat2path -U $outputdir"01_skewer/"$samplename"_trim_1.fastq" -S ${outhisat2}${samplename}.sam --summary-file ${outhisat2}${samplename}_summary.txt --no-unal -p $pthread"
-    #echo -e "\t$ $cmd3"
-    #time eval $cmd3
+    cmd3="hisat2 -x $hisat2path -U $outputdir"01_fastp/"$samplename/$samplename"_trim_1.fastq"  -S ${outhisat2}${samplename}.sam --summary-file ${outhisat2}${samplename}_summary.txt --no-unal -p $pthread"
+    echo -e "\t$ $cmd3"
+    time eval $cmd3
 
 done
 
